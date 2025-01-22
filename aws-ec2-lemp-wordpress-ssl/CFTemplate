@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WordPress on EC2 with Custom Domain"
+
+Parameters:
+  AvailabilityZone:
+    Type: String
+    Description: The avaiability zone you'd like to deploy your instance to
+  LatestUbuntuAMIForYourAZ:
+    Type: String
+    Description: The specific AMI ID of the latest free tier Ubuntu Instance
+  ExistingKeyPair:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: this must be the name of an existing EC2 Key Pair that you have access to.
+  DBName:  
+    Description: WordPress database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: database name must start with a letter and only contain alphanumeric characters.
+  DBUser:
+    Description: WordPress database admin username
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: username must start with a letter and only contain alphanumeric characters.
+  DBPassword:
+    NoEcho: 'true'
+    Description: WordPress database admin password (NOT ROOT)
+    Type: String
+    MinLength: '8'
+    MaxLength: '20'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: password must start with a letter and only contain alphanumeric characters. Should be between 8 and 20 characters.
+  DBRootPassword:
+    NoEcho: 'true'
+    Description: MariaDB root password
+    Type: String
+    MinLength: '8'
+    MaxLength: '30'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: password must start with a letter and only contain alphanumeric characters. Should be between 8 and 30 characters.
+  ExistingDomainName:
+    Type: String
+    Description: Existing domain name in Route 53
+  ExistingHostedZone:
+    Type: String
+    Description: The ID of your existing Hosted Zone in Route 53 (not the logical name)
+  SSLCertbotEmail:
+    Type: String
+    Description: Email address to provide information about Certbot changes (necessary to install a certificate)
+
+Resources:
+  WebPressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable SSH, HTTP, and HTTPS access"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  MyWebServerInstance: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAMIForYourAZ
+      AvailabilityZone: !Ref AvailabilityZone
+      InstanceType: t2.micro
+      KeyName: !Ref ExistingKeyPair
+      SecurityGroupIds:
+        - !GetAtt WebPressSecurityGroup.GroupId
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          
+          # installing and starting packages
+          sudo apt update -y
+          sudo apt upgrade -y
+          sudo apt install -y nginx php8.1-fpm php-mysql mariadb-server
+          sudo systemctl enable mariadb 
+          sudo systemctl start mariadb 
+          sudo systemctl enable nginx 
+          sudo systemctl start nginx 
+          sudo systemctl enable php-fpm 
+          sudo systemctl start php-fpm 
+          
+          # installing WordPress and setting relevant permissions
+          sudo mkdir /var/www
+          cd /var/www
+          sudo wget https://wordpress.org/latest.tar.gz
+          sudo tar -xzvf latest.tar.gz
+          sudo rm latest.tar.gz
+          sudo chown -R www-data:www-data wordpress
+          sudo find wordpress/ -type d -exec chmod 755 {} \;
+          sudo find wordpress/ -type f -exec chmod 644 {} \;
+          sudo cp /var/www/wordpress/wp-config-sample.php /var/www/wordpress/wp-config.php
+
+          # setting up the mariadb database and linking to our WordPress installation
+          sudo mysqladmin -u root password "${DBRootPassword}"
+          sudo mysql -u root -p"${DBRootPassword}" -e "CREATE DATABASE IF NOT EXISTS ${DBName};"
+          sudo mysql -u root -p"${DBRootPassword}" -e "CREATE USER '${DBUser}'@'localhost' IDENTIFIED BY '${DBPassword}';"
+          sudo mysql -u root -p"${DBRootPassword}" -e "GRANT ALL PRIVILEGES ON ${DBName}.* TO '${DBUser}'@'localhost';"
+          sudo mysql -u root -p"${DBRootPassword}" -e "FLUSH PRIVILEGES;"
+          sudo sed -i "s/database_name_here/${DBName}/" /var/www/wordpress/wp-config.php
+          sudo sed -i "s/username_here/${DBUser}/" /var/www/wordpress/wp-config.php
+          sudo sed -i "s/password_here/${DBPassword}/" /var/www/wordpress/wp-config.php
+          
+          # configuring nginx to serve HTTP requests to our WordPress application (read the comment below this section!!!!)
+          sudo cat > /etc/nginx/sites-available/wordpress << EOL
+          upstream php-handler {
+              server unix:/var/run/php/php8.1-fpm.sock;
+          }
+          server {
+              listen 80;
+              server_name ${ExistingDomainName};
+              root /var/www/wordpress;
+              index index.php;
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$args;
+              }
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass php-handler;
+              }
+          }
+          EOL
+          sudo ln -s /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/
+          sudo nginx -t
+          sudo systemctl restart nginx
+          # if you require a later version of php-fpm, please change the version of this file -> php8.1-fpm.sock to the relevant number to avoid errors
+          
+          # installing the SSL certificate
+          sudo apt install -y snapd
+          sudo snap install core; snap refresh core
+          sudo snap install --classic certbot
+          sudo ln -s /snap/bin/certbot /usr/bin/certbot
+          sudo certbot run -n --nginx --agree-tos -d ${ExistingDomainName}  -m  ${SSLCertbotEmail}  --redirect
+          sudo systemctl restart nginx
+
+  MyElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyWebServerInstance
+    
+  MyDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref ExistingHostedZone
+      Name: !Ref ExistingDomainName
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+        - !GetAtt MyElasticIP.PublicIp
