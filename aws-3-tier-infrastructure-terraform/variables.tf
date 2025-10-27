@@ -19,7 +19,7 @@ variable "instance_type" {
   type        = string
 }
 
-#VPC Module Variables
+#VPC Variables
 variable "vpc_cidr" {
   type = string
 }
@@ -38,4 +38,17 @@ variable "db_private_subnet_cidrs" {
 
 variable "public_subnet_cidrs" {
   type = list(string)
+}
+
+#DB Variables
+variable "db_username" {
+  description = "Database administrator username"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password" {
+  description = "Database administrator password"
+  type        = string
+  sensitive   = true
 }

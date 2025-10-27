@@ -5,3 +5,15 @@ variable "environment" {
 variable "instance_type" {
     type = string
 }
+
+variable "public_lb_sg" {
+    type = string
+}
+
+variable "public_subnets" {
+    type = list(string)
+}
+
+variable "public_sg" {
+    type = string
+}

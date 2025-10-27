@@ -24,8 +24,8 @@ resource "aws_lb" "private_facing" {
   name               = "${var.environment}-load-balancer-private"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = module.security.aws_security_group.private_lb.id
-  subnets            = module.vpc.aws_subnet.private.id
+  security_groups    = [var.private_lb_sg]
+  subnets            = var.private_subnets
 
   enable_deletion_protection = true
 
@@ -36,7 +36,7 @@ resource "aws_launch_template" "private" {
   name_prefix            = "private"
   image_id               = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
-  vpc_security_group_ids = [module.security.aws_security_group.app_tier_instances.id]
+  vpc_security_group_ids = [var.private_sg]
 
   tag_specifications {
     resource_type = "instance"
@@ -48,8 +48,8 @@ resource "aws_autoscaling_group" "public" {
   desired_capacity    = 2
   max_size            = 2
   min_size            = 1
-  vpc_zone_identifier = module.vpc.aws_subnet.private.id
-  target_group_arns   = aws_lb.private_facing
+  vpc_zone_identifier = var.private_subnets
+  target_group_arns   = [aws_lb.private_facing.arn]
 
   launch_template {
     id      = aws_launch_template.private.id

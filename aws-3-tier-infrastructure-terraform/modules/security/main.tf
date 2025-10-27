@@ -2,8 +2,8 @@
 resource "aws_security_group" "public_lb" {
   name        = "${var.environment}_public_lb"
   description = "Security Group for Public Facing Load Balancer"
-  vpc_id      = module.vpc.aws_vpc.main.id
-  tags = local.tags
+  vpc_id      = var.vpc_id
+  tags        = local.tags
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http_ingress" {
@@ -37,7 +37,7 @@ resource "aws_vpc_security_group_egress_rule" "web_tier_egress" {
 resource "aws_security_group" "web_tier_instances" {
   name        = "${var.environment}_web_tier_instances"
   description = "Security Group for Web Tier Instances"
-  vpc_id      = module.vpc.aws_vpc.main.id
+  vpc_id      = var.vpc_id
   tags = local.tags
 }
 
@@ -51,7 +51,7 @@ resource "aws_vpc_security_group_ingress_rule" "public_lb_ingress" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "http_egress" {
-  security_group_id = aws_security_group.example.id
+  security_group_id = aws_security_group.web_tier_instances.id
 
   referenced_security_group_id = aws_security_group.private_lb.id
   from_port   = 80
@@ -63,7 +63,7 @@ resource "aws_vpc_security_group_egress_rule" "http_egress" {
 resource "aws_security_group" "private_lb" {
   name        = "${var.environment}_private_lb"
   description = "Security Group for Web Tier Instances"
-  vpc_id      = module.vpc.aws_vpc.main.id
+  vpc_id      = var.vpc_id
   tags = local.tags
 }
 
@@ -78,7 +78,7 @@ resource "aws_vpc_security_group_ingress_rule" "web_tier_ingress" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
-  security_group_id = aws_security_group.example.id
+  security_group_id = aws_security_group.private_lb.id
 
   referenced_security_group_id = aws_security_group.app_tier_instances.id
   from_port   = 80
@@ -90,24 +90,23 @@ resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
 resource "aws_security_group" "app_tier_instances" {
   name        = "${var.environment}_private_lb"
   description = "Security Group for Web Tier Instances"
-  vpc_id      = module.vpc.aws_vpc.main.id
-  tags = local.tags
+  vpc_id      = var.vpc_id
 }
 
 
 resource "aws_vpc_security_group_ingress_rule" "private_lb_ingress" {
   security_group_id = aws_security_group.app_tier_instances.id
 
-  referenced_security_group_id = aws_security_group.private_lb
+  referenced_security_group_id = aws_security_group.private_lb.id
   from_port   = 80
   ip_protocol = "tcp"
   to_port     = 80
 }
 
-resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
+resource "aws_vpc_security_group_egress_rule" "db_tier_egress" {
   security_group_id = aws_security_group.app_tier_instances.id
 
-  referenced_security_group_id = aws_security_group.db_sh
+  referenced_security_group_id = aws_security_group.db_sg.id
   from_port   = 3306
   ip_protocol = "tcp"
   to_port     = 3306
@@ -117,13 +116,13 @@ resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
 resource "aws_security_group" "db_sg" {
   name        = "${var.environment}_db_security_group"
   description = "Security Group for Database"
-  vpc_id      = module.vpc.aws_vpc.main.id
+  vpc_id      = var.vpc_id
   tags = local.tags
 }
 
 
-resource "aws_vpc_security_group_ingress_rule" "app_tier_ingress" {
-  security_group_id = aws_security_group.app_tier
+resource "aws_vpc_security_group_ingress_rule" "db_app_tier_ingress" {
+  security_group_id = aws_security_group.db_sg.id
 
   referenced_security_group_id = aws_security_group.app_tier_instances.id
   from_port   = 3306
@@ -131,8 +130,8 @@ resource "aws_vpc_security_group_ingress_rule" "app_tier_ingress" {
   to_port     = 3306
 }
 
-resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
-  security_group_id = aws_security_group.app_tier_instances
+resource "aws_vpc_security_group_egress_rule" "db_app_tier_egress" {
+  security_group_id = aws_security_group.db_sg.id
 
   referenced_security_group_id = aws_security_group.app_tier_instances.id
   from_port   = 3306
