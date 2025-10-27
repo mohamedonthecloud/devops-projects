@@ -28,9 +28,9 @@ resource "aws_vpc_security_group_egress_rule" "web_tier_egress" {
   security_group_id = aws_security_group.public_lb.id
 
   referenced_security_group_id = aws_security_group.web_tier_instances.id
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 # Web Tier Security Group Information
@@ -45,18 +45,18 @@ resource "aws_vpc_security_group_ingress_rule" "public_lb_ingress" {
   security_group_id = aws_security_group.web_tier_instances.id
 
   referenced_security_group_id = aws_security_group.public_lb.id
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 resource "aws_vpc_security_group_egress_rule" "http_egress" {
   security_group_id = aws_security_group.example.id
 
   referenced_security_group_id = aws_security_group.private_lb.id
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 # Private Load Balancer Security Group Information
@@ -72,18 +72,18 @@ resource "aws_vpc_security_group_ingress_rule" "web_tier_ingress" {
   security_group_id = aws_security_group.private_lb.id
 
   referenced_security_group_id = aws_security_group.web_tier_instances.id
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
   security_group_id = aws_security_group.example.id
 
   referenced_security_group_id = aws_security_group.app_tier_instances.id
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 # App Tier Security Group Information
@@ -99,9 +99,9 @@ resource "aws_vpc_security_group_ingress_rule" "private_lb_ingress" {
   security_group_id = aws_security_group.app_tier_instances.id
 
   referenced_security_group_id = aws_security_group.private_lb
-  from_port   = 8080
+  from_port   = 80
   ip_protocol = "tcp"
-  to_port     = 8080
+  to_port     = 80
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {

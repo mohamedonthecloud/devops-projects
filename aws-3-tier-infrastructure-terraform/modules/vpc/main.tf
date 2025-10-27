@@ -12,9 +12,9 @@ resource "aws_vpc" "main" {
 
 # Subnets
 resource "aws_subnet" "public" {
-    count                   = length(var.public_subnets)
+    count                   = length(var.public_subnet_cidrs)
     vpc_id                  = aws_vpc.main.id
-    cidr_block              = var.public_subnets[count.index]
+    cidr_block              = var.public_subnet_cidrs[count.index]
     availability_zone       = var.availability_zones[count.index]
     map_public_ip_on_launch = true
 
@@ -24,10 +24,21 @@ resource "aws_subnet" "public" {
     }
 }
 
-resource "aws_subnet" "private" {
-    count             = length(var.private_subnets)
+resource "aws_subnet" "app_tier" {
+    count             = length(var.app_private_subnet_cidrs)
     vpc_id            = aws_vpc.main.id
-    cidr_block        = var.private_subnets[count.index]
+    cidr_block        = var.app_private_subnet_cidrs[count.index]
+    availability_zone = var.availability_zones[count.index % length(var.availability_zones)]
+
+    tags = {
+        name = "${var.environment}-app-private-subnet-${count.index + 1}"
+    }
+}
+
+resource "aws_subnet" "db_tier" {
+    count             = length(var.db_private_subnet_cidrs)
+    vpc_id            = aws_vpc.main.id
+    cidr_block        = var.db_private_subnet_cidrs[count.index]
     availability_zone = var.availability_zones[count.index % length(var.availability_zones)]
 
     tags = {
@@ -45,9 +56,9 @@ resource "aws_internet_gateway" "igw" {
 }
 
 resource "aws_nat_gateway" "nat_gw" {
-    count = length(var.private_subnets)
+    count = length(var.app_private_subnet_cidrs)
     allocation_id = aws_eip.nat[count.index].id
-    subnet_id     = aws_subnet.private[count.index].id
+    subnet_id     = aws_subnet.app_tier[count.index].id
 
     tags = {
         Name = "${var.environment}_nat_gateway"
@@ -58,7 +69,7 @@ resource "aws_nat_gateway" "nat_gw" {
 
 #Elastic IP for Gatewway
 resource "aws_eip" "nat" {
-    count      = length(var.private_subnets)
+    count      = length(var.app_private_subnet_cidrs)
     domain     = "vpc"
     depends_on = [aws_internet_gateway.igw]
 }
@@ -77,9 +88,9 @@ resource "aws_route_table" "public" {
   }
 }
 
-resource "aws_route_table" "private" {
+resource "aws_route_table" "app_private" {
   vpc_id = aws_vpc.main.id
-  count  = length(var.private_subnets)
+  count  = length(var.app_private_subnet_cidrs)
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -91,14 +102,29 @@ resource "aws_route_table" "private" {
   }
 }
 
+resource "aws_route_table" "db_private" {
+  vpc_id = aws_vpc.main.id
+  count  = length(var.db_private_subnet_cidrs)
+
+  tags = {
+    Name = "${var.environment}_main_private_subnet_route_table"
+  }
+}
+
 resource "aws_route_table_association" "public" {
-  count          = length(var.public_subnets)
+  count          = length(var.public_subnet_cidrs)
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "private" {
-  count          = length(var.private_subnets)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+resource "aws_route_table_association" "app_private" {
+  count          = length(var.app_private_subnet_cidrs)
+  subnet_id      = aws_subnet.app_tier[count.index].id
+  route_table_id = aws_route_table.app_private[count.index].id
+}
+
+resource "aws_route_table_association" "db_private" {
+  count          = length(var.db_private_subnet_cidrs)
+  subnet_id      = aws_subnet.db_tier[count.index].id
+  route_table_id = aws_route_table.db_private[count.index].id
 }
