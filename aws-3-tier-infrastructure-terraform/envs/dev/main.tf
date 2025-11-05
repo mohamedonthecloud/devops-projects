@@ -1,5 +1,5 @@
 module "main_vpc" {
-  source                   = "./modules/vpc"
+  source                   = "../../modules/vpc"
   environment              = var.environment
   availability_zones       = var.availability_zones
   vpc_cidr                 = var.vpc_cidr
@@ -9,7 +9,7 @@ module "main_vpc" {
 }
 
 module "web_tier" {
-  source         = "./modules/web_tier"
+  source         = "../../modules/web_tier"
   environment    = var.environment
   instance_type  = var.instance_type
   public_sg      = module.security_groups.web_tier_instance_sg_id
@@ -19,7 +19,7 @@ module "web_tier" {
 }
 
 module "app_tier" {
-  source          = "./modules/app_tier"
+  source          = "../../modules/app_tier"
   environment     = var.environment
   instance_type   = var.instance_type
   private_sg      = module.security_groups.app_tier_instance_sg_id
@@ -29,7 +29,7 @@ module "app_tier" {
 }
 
 module "db_tier" {
-  source             = "./modules/db_tier"
+  source             = "../../modules/db_tier"
   environment        = var.environment
   db_username        = var.db_username
   db_password        = var.db_password
@@ -39,7 +39,7 @@ module "db_tier" {
 }
 
 module "security_groups" {
-  source      = "./modules/security"
+  source      = "../../modules/security"
   environment = var.environment
   vpc_id      = module.main_vpc.vpc_id
 }

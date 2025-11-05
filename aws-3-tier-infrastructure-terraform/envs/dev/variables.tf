@@ -7,11 +7,13 @@ variable "environment" {
 variable "access_key" {
   description = "Name of public access key"
   type        = string
+  sensitive   = true
 }
 
 variable "secret_access_key" {
   description = "Name of private access key"
   type        = string
+  sensitive   = true
 }
 
 variable "instance_type" {
