@@ -17,3 +17,7 @@ variable "private_subnets" {
 variable "private_sg" {
     type = string
 }
+
+variable "vpc_id" {
+    type = string
+}

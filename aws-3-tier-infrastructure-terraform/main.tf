@@ -15,7 +15,7 @@ module "web_tier" {
   public_sg = module.security_groups.web_tier_instance_sg_id
   public_subnets = module.main_vpc.public_subnets_ids
   public_lb_sg = module.security_groups.public_lb_sg_id
-
+  vpc_id = module.main_vpc.vpc_id
 }
 
 module "app_tier" {
@@ -25,6 +25,7 @@ module "app_tier" {
   private_sg = module.security_groups.app_tier_instance_sg_id
   private_subnets = module.main_vpc.app_private_subnets_ids
   private_lb_sg = module.security_groups.private_lb_sg_id
+  vpc_id = module.main_vpc.vpc_id
 }
 
 module "db_tier" {
