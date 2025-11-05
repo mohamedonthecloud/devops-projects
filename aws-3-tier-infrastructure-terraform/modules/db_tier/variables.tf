@@ -21,3 +21,7 @@ variable "db_password" {
 variable "db_sg" {
     type = string
 }
+
+variable "instance_class" {
+  type = string
+}

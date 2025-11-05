@@ -20,7 +20,7 @@ resource "aws_lb_target_group_attachment" "web_instances" {
   target_group_arn = aws_lb_target_group.web_instances.arn
   target_id        = each.value.id
   port             = 80
-}
+} */
 
 resource "aws_lb_listener" "web_instances" {
   load_balancer_arn = aws_lb.public_facing.arn
@@ -31,7 +31,7 @@ resource "aws_lb_listener" "web_instances" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.web_instances.arn
   }
-} */
+}
 
 resource "aws_lb_target_group" "web_instances" {
   name     = "${var.environment}-web-instance-target-group"

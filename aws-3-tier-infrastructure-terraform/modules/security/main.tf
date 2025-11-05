@@ -88,7 +88,7 @@ resource "aws_vpc_security_group_egress_rule" "app_tier_egress" {
 
 # App Tier Security Group Information
 resource "aws_security_group" "app_tier_instances" {
-  name        = "${var.environment}_private_lb"
+  name        = "${var.environment}_app_tier_instances"
   description = "Security Group for Web Tier Instances"
   vpc_id      = var.vpc_id
 }
